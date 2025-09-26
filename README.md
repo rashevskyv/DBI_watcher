@@ -25,3 +25,7 @@ Use `--force` to rebuild artifacts even if the latest release was already record
 ## Updating the language mapping
 
 Language names originate from `languages.json`. Extend or tweak this file if new locale identifiers appear in future releases; missing codes fall back to the short identifier.
+
+## Automation
+
+A GitHub Actions workflow (`.github/workflows/update-config.yml`) runs every 10 minutes (and on manual dispatch) to execute `python main.py`, commit changes under `output/`, and push them back to the repository when a new DBIPatcher release appears.
