@@ -13,7 +13,7 @@ FILE_HEADER = (";LANGUAGES\n\n"
 "[Update list of translations]\n"
 "catch_errors\n"
 "download https://github.com/rashevskyv/DBI_watcher/raw/main/output/config.ini '/config/uberhand/downloads/dbi.config.ini'\n"
-"move '/config/uberhand/downloads/dbi.config.ini' '/switch/.packages/Software/DBI/config.ini'\n\n"
+"move '/config/uberhand/downloads/dbi.config.ini' '/switch/.packages/Software/DBI/Fan Translations/config.ini'\n\n"
 )
 ENTRY_TEMPLATE = (
     "[{lang_long}]\n"
