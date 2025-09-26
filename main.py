@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import shutil
 from datetime import datetime, timezone
 from pathlib import Path
 import sys
-import zipfile
 
 import requests
 
@@ -93,10 +93,12 @@ def render_config_ini(
     return content, ordered_codes
 
 
-def build_archive(config_path: Path, metadata: dict, zip_path: Path) -> None:
-    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as archive:
-        archive.write(config_path, arcname=CONFIG_FILENAME)
-        archive.writestr("metadata.json", json.dumps(metadata, indent=2))
+def clear_output_dir(output_dir: Path) -> None:
+    for entry in output_dir.iterdir():
+        if entry.is_dir():
+            shutil.rmtree(entry)
+        else:
+            entry.unlink()
 
 
 def update_state(
@@ -177,36 +179,16 @@ def main() -> int:
 
     release_tag = release.get("tag_name", f"dbi-{version}")
     args.output_dir.mkdir(parents=True, exist_ok=True)
-    release_dir = args.output_dir / release_tag
-    release_dir.mkdir(parents=True, exist_ok=True)
+    clear_output_dir(args.output_dir)
 
-    legacy_path = release_dir / "package.ini"
-    if legacy_path.exists():
-        legacy_path.unlink()
-
-    config_path = release_dir / CONFIG_FILENAME
+    config_path = args.output_dir / CONFIG_FILENAME
     config_path.write_text(config_content, encoding="utf-8")
-
-    metadata = {
-        "tag": release_tag,
-        "version": version,
-        "release_id": release_id,
-        "published_at": release.get("published_at"),
-        "languages": ordered_codes,
-    }
-    metadata_path = release_dir / "metadata.json"
-    save_json(metadata_path, metadata)
-
-    zip_name = f"dbi_{version}_{release_tag}.zip"
-    zip_path = args.output_dir / zip_name
-    build_archive(config_path, metadata, zip_path)
 
     update_state(args.state_file, release_id, release_tag, version, ordered_codes)
 
     print(f"Prepared package for release {release_tag} with version {version}.")
     print(f"Languages: {', '.join(ordered_codes)}")
     print(f"config.ini: {config_path}")
-    print(f"Archive: {zip_path}")
     return 0
 
 

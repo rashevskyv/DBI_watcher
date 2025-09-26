@@ -1,6 +1,6 @@
 # DBI Watcher
 
-Utility that polls the latest release of [DBIPatcher](https://github.com/rashevskyv/DBIPatcher) and produces a ready-to-use `config.ini` archive for Ultrahand packages. The script mirrors the behaviour of `unpack_translation`, but applies the DBI specific template and skips repacking translation zips.
+Utility that polls the latest release of [DBIPatcher](https://github.com/rashevskyv/DBIPatcher) and produces a ready-to-use `config.ini` for Ultrahand packages. The script mirrors the behaviour of `unpack_translation`, but applies the DBI specific template and skips repacking translation zips.
 
 ## Prerequisites
 
@@ -15,17 +15,15 @@ python main.py
 
 By default the script writes:
 
-* `output/<tag>/config.ini` with language blocks built from the release assets (sorted alphabetically by language name)
-* `output/<tag>/metadata.json` with basic release information
-* `output/dbi_<version>_<tag>.zip` containing the config and metadata
+* `output/config.ini` with language blocks built from the release assets (sorted alphabetically by language name)
 * `state.json` that records the latest processed release id
 
-Use `--force` to rebuild artifacts even if the latest release was already recorded. `--output-dir`, `--state-file`, and `--languages` let you change paths.
-
-## Updating the language mapping
-
-Language names originate from `languages.json`. Extend or tweak this file if new locale identifiers appear in future releases; missing codes fall back to the short identifier.
+Use `--force` to rebuild the config even if the latest release was already recorded. `--output-dir`, `--state-file`, and `--languages` let you change paths.
 
 ## Automation
 
 A GitHub Actions workflow (`.github/workflows/update-config.yml`) runs every 10 minutes (and on manual dispatch) to execute `python main.py`, commit changes under `output/`, and push them back to the repository when a new DBIPatcher release appears.
+
+## Updating the language mapping
+
+Language names originate from `languages.json`. Extend or tweak this file if new locale identifiers appear in future releases; missing codes fall back to the short identifier.
