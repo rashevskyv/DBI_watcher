@@ -9,12 +9,15 @@ import sys
 
 import requests
 
-FILE_HEADER = (";LANGUAGES\n\n"
+# Змінено на шаблон, додано плейсхолдер {tag_name}
+FILE_HEADER_TEMPLATE = (";LANGUAGES\n\n"
 "[Update list of translations]\n"
+"-- DBI {tag_name}\n"
 "catch_errors\n"
 "download https://github.com/rashevskyv/DBI_watcher/raw/main/output/config.ini '/config/uberhand/downloads/dbi.config.ini'\n"
-"move '/config/uberhand/downloads/dbi.config.ini' '/switch/.packages/Software/DBI/Fan Translations/config.ini'\n\n"
+"move '/config/uberhand/downloads/dbi.config.ini' '/switch/.packages/DBI/Fan Translations/config.ini'\n\n"
 )
+
 ENTRY_TEMPLATE = (
     "[{lang_long}]\n"
     "catch_errors\n"
@@ -73,7 +76,7 @@ def parse_assets(assets: list[dict]) -> tuple[str, list[str]]:
 
 
 def render_config_ini(
-    version: str, languages: list[str], lang_map: dict[str, str]
+    tag_name: str, version: str, languages: list[str], lang_map: dict[str, str]
 ) -> tuple[str, list[str]]:
     rendered: list[tuple[str, str, str]] = []
     for lang_code in languages:
@@ -86,7 +89,10 @@ def render_config_ini(
         rendered.append((long_name.casefold(), lang_code, block))
     rendered.sort(key=lambda item: (item[0], item[1]))
 
-    blocks: list[str] = [FILE_HEADER.rstrip()]
+    # Форматуємо заголовок з тегом релізу
+    header = FILE_HEADER_TEMPLATE.format(tag_name=tag_name).rstrip()
+    
+    blocks: list[str] = [header]
     ordered_codes: list[str] = []
     for _, lang_code, block in rendered:
         blocks.append(block)
@@ -180,9 +186,12 @@ def main() -> int:
         print(str(err), file=sys.stderr)
         return 1
 
-    config_content, ordered_codes = render_config_ini(version, languages, lang_map)
-
+    # Отримуємо тег релізу (наприклад, "dbi-658" або просто "658")
     release_tag = release.get("tag_name", f"dbi-{version}")
+
+    # Передаємо release_tag у функцію рендерингу
+    config_content, ordered_codes = render_config_ini(release_tag, version, languages, lang_map)
+
     args.output_dir.mkdir(parents=True, exist_ok=True)
     clear_output_dir(args.output_dir)
 
