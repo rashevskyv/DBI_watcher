@@ -21,8 +21,10 @@ FILE_HEADER_TEMPLATE = (";LANGUAGES\n\n"
 ENTRY_TEMPLATE = (
     "[{lang_long}]\n"
     "catch_errors\n"
-    "download https://github.com/rashevskyv/DBIPatcher/releases/latest/download/DBI.{version}.{lang_short}.nro /switch/DBI/DBI_new.nro\n"
+    "download https://github.com/rashevskyv/DBIPatcher/releases/latest/download/DBI.{version}.ru_patched.nro /switch/DBI/DBI_new.nro\n"
+    "download https://github.com/rashevskyv/DBIPatcher/releases/latest/download/translation_{lang_short}.bin /switch/DBI/translation_new.bin\n"
     "mv /switch/DBI/DBI_new.nro /switch/DBI/DBI.nro\n"
+    "mv /switch/DBI/translation_new.bin /switch/DBI/translation.bin\n"
 )
 CONFIG_FILENAME = "config.ini"
 DEFAULT_STATE_FILE = Path("state.json")
@@ -56,19 +58,19 @@ def parse_assets(assets: list[dict]) -> tuple[str, list[str]]:
     for asset in assets:
         name = asset.get("name", "")
         lower_name = name.lower()
-        if not lower_name.startswith("dbi.") or not lower_name.endswith(".nro"):
-            continue
-        parts = name.split(".")
-        if len(parts) != 4:
-            continue
-        _, asset_version, lang_code, _ = parts
-        if version is None:
-            version = asset_version
-        elif version != asset_version:
-            raise ValueError(
-                f"Inconsistent versions in assets: expected {version}, got {asset_version} from {name}"
-            )
-        languages.append(lang_code)
+
+        # Шукаємо основний NRO файл для визначення версії
+        if lower_name.startswith("dbi.") and lower_name.endswith(".ru_patched.nro"):
+            parts = name.split(".")
+            if len(parts) == 4:  # DBI.{version}.ru_patched.nro
+                version = parts[1]
+
+        # Шукаємо файли перекладів
+        if lower_name.startswith("translation_") and lower_name.endswith(".bin"):
+            # translation_{lang_code}.bin
+            lang_code = name[12:-4]  # Видаляємо "translation_" та ".bin"
+            languages.append(lang_code)
+
     if version is None or not languages:
         raise ValueError("No DBI assets found in the latest release")
     languages.sort()
