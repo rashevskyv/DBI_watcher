@@ -21,7 +21,7 @@ FILE_HEADER_TEMPLATE = (";LANGUAGES\n\n"
 ENTRY_TEMPLATE = (
     "[{lang_long}]\n"
     "catch_errors\n"
-    "download https://github.com/rashevskyv/DBIPatcher/releases/latest/download/DBI.{version}.ru_patched.nro /switch/DBI/DBI_new.nro\n"
+    "download https://github.com/rashevskyv/DBIPatcher/releases/latest/download/{dbi_name} /switch/DBI/DBI_new.nro\n"
     "download https://github.com/rashevskyv/DBIPatcher/releases/latest/download/translation_{lang_short}.bin /switch/DBI/translation_new.bin\n"
     "mv /switch/DBI/DBI_new.nro /switch/DBI/DBI.nro\n"
     "mv /switch/DBI/translation_new.bin /switch/DBI/translation.bin\n"
@@ -52,18 +52,31 @@ def fetch_latest_release() -> dict:
     return response.json()
 
 
-def parse_assets(assets: list[dict]) -> tuple[str, list[str]]:
+def parse_assets(release: dict) -> tuple[str, str, list[str]]:
+    assets = release.get("assets", [])
+    tag_name = release.get("tag_name", "unknown")
     version = None
+    dbi_name = None
     languages: list[str] = []
     for asset in assets:
         name = asset.get("name", "")
         lower_name = name.lower()
 
-        # Шукаємо основний NRO файл для визначення версії
-        if lower_name.startswith("dbi.") and lower_name.endswith(".ru_patched.nro"):
-            parts = name.split(".")
-            if len(parts) == 4:  # DBI.{version}.ru_patched.nro
-                version = parts[1]
+        # Шукаємо основний NRO файл (за маскою DBI*.nro)
+        if lower_name.startswith("dbi") and lower_name.endswith(".nro"):
+            dbi_name = name
+            # Спробуємо витягти версію з імені файлу або тегу
+            if lower_name.endswith(".ru_patched.nro"):
+                parts = name.split(".")
+                if len(parts) == 4:  # DBI.{version}.ru_patched.nro
+                    version = parts[1]
+            
+            if version is None:
+                # Спробуємо витягти версію з тегу (наприклад "dbi-658" -> "658")
+                if "-" in tag_name:
+                    version = tag_name.split("-")[-1]
+                else:
+                    version = tag_name
 
         # Шукаємо файли перекладів
         if lower_name.startswith("translation_") and lower_name.endswith(".bin"):
@@ -71,14 +84,14 @@ def parse_assets(assets: list[dict]) -> tuple[str, list[str]]:
             lang_code = name[12:-4]  # Видаляємо "translation_" та ".bin"
             languages.append(lang_code)
 
-    if version is None or not languages:
+    if version is None or dbi_name is None or not languages:
         raise ValueError("No DBI assets found in the latest release")
     languages.sort()
-    return version, languages
+    return version, dbi_name, languages
 
 
 def render_config_ini(
-    tag_name: str, version: str, languages: list[str], lang_map: dict[str, str]
+    tag_name: str, version: str, dbi_name: str, languages: list[str], lang_map: dict[str, str]
 ) -> tuple[str, list[str]]:
     rendered: list[tuple[str, str, str]] = []
     for lang_code in languages:
@@ -86,6 +99,7 @@ def render_config_ini(
         block = ENTRY_TEMPLATE.format(
             lang_long=long_name,
             version=version,
+            dbi_name=dbi_name,
             lang_short=lang_code,
         ).rstrip()
         rendered.append((long_name.casefold(), lang_code, block))
@@ -183,7 +197,7 @@ def main() -> int:
         return 0
 
     try:
-        version, languages = parse_assets(release.get("assets", []))
+        version, dbi_name, languages = parse_assets(release)
     except ValueError as err:
         print(str(err), file=sys.stderr)
         return 1
@@ -192,7 +206,7 @@ def main() -> int:
     release_tag = release.get("tag_name", f"dbi-{version}")
 
     # Передаємо release_tag у функцію рендерингу
-    config_content, ordered_codes = render_config_ini(release_tag, version, languages, lang_map)
+    config_content, ordered_codes = render_config_ini(release_tag, version, dbi_name, languages, lang_map)
 
     args.output_dir.mkdir(parents=True, exist_ok=True)
     clear_output_dir(args.output_dir)
