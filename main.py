@@ -9,7 +9,7 @@ import sys
 
 import requests
 
-# Змінено на шаблон, додано плейсхолдер {tag_name}
+# --- Uberhand templates (config.ini) ---
 FILE_HEADER_TEMPLATE = (";LANGUAGES\n\n"
 "[Update list of translations]\n"
 "-- DBI {tag_name}\n"
@@ -26,7 +26,31 @@ ENTRY_TEMPLATE = (
     "mv /switch/DBI/DBI_new.nro /switch/DBI/DBI.nro\n"
     "mv /switch/DBI/translation_new.bin /switch/DBI/translation.bin\n"
 )
+
+# --- Ultrahand templates (package.ini) ---
+ULTRA_FILE_HEADER_TEMPLATE = (
+    ";title='DBI Fan Translations'\n"
+    ";creator='Kefir Team'\n"
+    ";version='{tag_name}'\n"
+    ";color='green'\n\n"
+    "[Update list of translations]\n"
+    "try:\n"
+    "notify-now 'Updating translation list...'\n"
+    "download https://github.com/rashevskyv/DBI_watcher/raw/main/output/package.ini '/config/ultrahand/downloads/dbi.package.ini'\n"
+    "move '/config/ultrahand/downloads/dbi.package.ini' '/switch/.packages/DBI/Fan Translations/package.ini'\n\n"
+)
+
+ULTRA_ENTRY_TEMPLATE = (
+    "[{lang_long}]\n"
+    "try:\n"
+    "notify-now 'Installing {lang_long}...'\n"
+    "download https://github.com/rashevskyv/DBIPatcher/releases/latest/download/{dbi_name} /switch/DBI/DBI_new.nro\n"
+    "download https://github.com/rashevskyv/DBIPatcher/releases/latest/download/translation_{lang_short}.bin /switch/DBI/translation_new.bin\n"
+    "move /switch/DBI/DBI_new.nro /switch/DBI/DBI.nro\n"
+    "move /switch/DBI/translation_new.bin /switch/DBI/translation.bin\n"
+)
 CONFIG_FILENAME = "config.ini"
+PACKAGE_FILENAME = "package.ini"
 DEFAULT_STATE_FILE = Path("state.json")
 DEFAULT_LANG_MAP_FILE = Path("languages.json")
 DEFAULT_OUTPUT_DIR = Path("output")
@@ -90,13 +114,19 @@ def parse_assets(release: dict) -> tuple[str, str, list[str]]:
     return version, dbi_name, languages
 
 
-def render_config_ini(
-    tag_name: str, version: str, dbi_name: str, languages: list[str], lang_map: dict[str, str]
+def _render_ini(
+    header_template: str,
+    entry_template: str,
+    tag_name: str,
+    version: str,
+    dbi_name: str,
+    languages: list[str],
+    lang_map: dict[str, str],
 ) -> tuple[str, list[str]]:
     rendered: list[tuple[str, str, str]] = []
     for lang_code in languages:
         long_name = lang_map.get(lang_code, lang_code)
-        block = ENTRY_TEMPLATE.format(
+        block = entry_template.format(
             lang_long=long_name,
             version=version,
             dbi_name=dbi_name,
@@ -105,9 +135,8 @@ def render_config_ini(
         rendered.append((long_name.casefold(), lang_code, block))
     rendered.sort(key=lambda item: (item[0], item[1]))
 
-    # Форматуємо заголовок з тегом релізу
-    header = FILE_HEADER_TEMPLATE.format(tag_name=tag_name).rstrip()
-    
+    header = header_template.format(tag_name=tag_name).rstrip()
+
     blocks: list[str] = [header]
     ordered_codes: list[str] = []
     for _, lang_code, block in rendered:
@@ -118,6 +147,18 @@ def render_config_ini(
     if not content.endswith("\n"):
         content += "\n"
     return content, ordered_codes
+
+
+def render_config_ini(
+    tag_name: str, version: str, dbi_name: str, languages: list[str], lang_map: dict[str, str]
+) -> tuple[str, list[str]]:
+    return _render_ini(FILE_HEADER_TEMPLATE, ENTRY_TEMPLATE, tag_name, version, dbi_name, languages, lang_map)
+
+
+def render_package_ini(
+    tag_name: str, version: str, dbi_name: str, languages: list[str], lang_map: dict[str, str]
+) -> tuple[str, list[str]]:
+    return _render_ini(ULTRA_FILE_HEADER_TEMPLATE, ULTRA_ENTRY_TEMPLATE, tag_name, version, dbi_name, languages, lang_map)
 
 
 def clear_output_dir(output_dir: Path) -> None:
@@ -214,11 +255,16 @@ def main() -> int:
     config_path = args.output_dir / CONFIG_FILENAME
     config_path.write_text(config_content, encoding="utf-8")
 
+    package_content, _ = render_package_ini(release_tag, version, dbi_name, languages, lang_map)
+    package_path = args.output_dir / PACKAGE_FILENAME
+    package_path.write_text(package_content, encoding="utf-8")
+
     update_state(args.state_file, release_id, release_tag, version, ordered_codes)
 
     print(f"Prepared package for release {release_tag} with version {version}.")
     print(f"Languages: {', '.join(ordered_codes)}")
-    print(f"config.ini: {config_path}")
+    print(f"config.ini:  {config_path}")
+    print(f"package.ini: {package_path}")
     return 0
 
 
